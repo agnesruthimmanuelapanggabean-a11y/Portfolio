@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring Trading Limit KPEI</title>
+<style>
+  :root{
+    --ink:#1f2937;
+    --paper:#f5f6f8;
+    --panel:#ffffff;
+    --line:#e3e6ea;
+    --accent:#2563eb;
+    --accent-dim:#6b7280;
+    --warn:#dc2626;
+    --warn-bg:#fef2f2;
+    --ok-bg:#eff6ff;
+    --mono: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+    --sans: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    border-bottom:none;
+    padding-bottom:6px;
+    margin-bottom:24px;
+  }
+  header h1{
+    font-size:22px;
+    letter-spacing:0;
+    margin:0;
+    font-weight:700;
+    color:var(--ink);
+  }
+  header .sub{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--accent-dim);
+    margin-top:2px;
+  }
+  header .date{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--accent-dim);
+    text-align:right;
+  }
+
+  .slots{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:20px;
+  }
+  .slot-btn{
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:10px 6px;
+    text-align:center;
+    font-family:var(--mono);
+    font-size:13px;
+    cursor:pointer;
+    border-radius:8px;
+    color:var(--ink);
+  }
+  .slot-btn.active{
+    border-color:var(--accent);
+    background:var(--accent);
+    color:#fff;
+  }
+  .slot-btn.done::after{
+    content:" ✓ tersimpan";
+    display:block;
+    font-size:10px;
+    margin-top:2px;
+    opacity:0.85;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:20px;
+    margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(16,24,40,0.04);
+  }
+  .panel h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--accent-dim);
+    margin:0 0 14px;
+    font-weight:700;
+  }
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{
+    display:block;
+    font-size:13px;
+    margin-bottom:5px;
+    color:var(--ink);
+  }
+  .field .hint{
+    font-size:12px;
+    color:var(--accent-dim);
+    margin-top:4px;
+  }
+  .hint-xs{
+    font-size:10px;
+    color:var(--accent-dim);
+    margin-top:10px;
+  }
+  input[type=text]{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-family:var(--mono);
+    font-size:14px;
+    background:#ffffff;
+    color:var(--ink);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent);}
+  input[type=text]::placeholder{color:#a1a8b3;}
+
+  .narrative{
+    font-size:14px;
+    line-height:1.6;
+    background:var(--ok-bg);
+    border-left:3px solid var(--accent);
+    padding:14px 16px;
+    border-radius:8px;
+    white-space:pre-wrap;
+    color:var(--ink);
+  }
+  .narrative.diff{
+    background:var(--warn-bg);
+    border-left-color:var(--warn);
+  }
+  .narrative.empty{
+    color:var(--accent-dim);
+    font-style:italic;
+    background:transparent;
+    border-left-color:var(--line);
+  }
+
+  .row-btns{
+    display:flex;
+    gap:10px;
+    margin-top:16px;
+    flex-wrap:wrap;
+  }
+  button.action{
+    font-family:var(--sans);
+    font-size:13.5px;
+    font-weight:600;
+    border:none;
+    padding:10px 18px;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover:not(:disabled){background:#1d4ed8;}
+  .btn-primary:disabled{background:#c7d2e0;cursor:not-allowed;}
+  .btn-secondary{background:#ffffff;color:var(--accent);border:1px solid var(--accent);}
+  .btn-secondary:disabled{color:#b7bdc7;border-color:var(--line);cursor:not-allowed;}
+  .btn-ghost{background:#ffffff;color:var(--warn);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--warn);}
+
+  .recap-list{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:13px;}
+  .recap-list li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .recap-list li:last-child{border-bottom:none;}
+  .recap-list .tag{
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--ok-bg);
+    color:var(--accent);
+    font-weight:600;
+  }
+  .recap-list .tag.missing{background:#f3f4f6;color:var(--accent-dim);}
+
+  .status-msg{
+    font-size:12.5px;
+    margin-top:10px;
+    font-family:var(--mono);
+  }
+  .status-msg.ok{color:var(--accent);}
+  .status-msg.err{color:var(--warn);}
+
+  footer{
+    text-align:center;
+    font-size:12px;
+    color:var(--accent-dim);
+    margin-top:24px;
+    font-family:var(--mono);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Monitoring Trading Limit KPEI</h1>
+      <div class="sub">iDClear Member Interface / kecukupan jaminan</div>
+    </div>
+    <div class="date" id="todayLabel"></div>
+  </header>
+
+  <div class="slots" id="slotButtons">
+    <div class="slot-btn" data-slot="08:30">08.30</div>
+    <div class="slot-btn" data-slot="13:30">13.30</div>
+    <div class="slot-btn" data-slot="16:30">16.30</div>
+  </div>
+
+  <div class="panel">
+    <h2>Input Nilai Equity</h2>
+    <div class="field">
+      <label for="valAtas">Perhitungan sistem</label>
+      <input type="text" id="valAtas" inputmode="decimal" placeholder="cth. 106.525.637.762,92">
+    </div>
+    <div class="field">
+      <label for="valBawah">Perhitungan manual</label>
+      <input type="text" id="valBawah" inputmode="decimal" placeholder="cth. 106.525.637.762,92">
+      <div class="hint">Selisih di bawah Rp 1.000 dianggap sama.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Screenshot Trading Limit</h2>
+    <div class="field">
+      <label for="imgInput">Tempel (Ctrl+V) screenshot di sini, atau pilih file</label>
+      <input type="file" id="imgInput" accept="image/*">
+      <div class="hint">Klik area ini dulu lalu Ctrl+V juga bisa.</div>
+      <div id="imgPreviewWrap" style="display:none;margin-top:10px;">
+        <img id="imgPreview" style="max-width:100%;border:1px solid var(--line);border-radius:2px;" alt="preview screenshot">
+        <div><button type="button" class="action btn-ghost" id="btnClearImg" style="margin-top:8px;">Hapus gambar</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Narasi Otomatis</h2>
+    <div class="narrative empty" id="narrativeBox">Isi kedua nilai di atas untuk melihat narasi.</div>
+    <div class="row-btns">
+      <button class="action btn-primary" id="btnSaveCapture" disabled>Simpan capture jam ini</button>
+      <button class="action btn-secondary" id="btnCopyImg" disabled>1. Salin gambar</button>
+      <button class="action btn-secondary" id="btnSendWA" disabled>2. Kirim ke WA</button>
+    </div>
+    <div class="hint hint-xs">Selalu simpan capture terlebih dahulu agar riwayat pengecekan tidak hilang.</div>
+    <div class="status-msg" id="captureStatus"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Rekap Hari Ini (untuk Drive)</h2>
+    <ul class="recap-list" id="recapList"></ul>
+    <div class="row-btns">
+      <button class="action btn-primary" id="btnSaveDrive" disabled>Simpan rekap ke Drive</button>
+      <button class="action btn-ghost" id="btnResetDay">Reset hari ini</button>
+    </div>
+    <div class="status-msg" id="driveStatus"></div>
+  </div>
+
+  <footer>Data tersimpan lokal di browser ini selama hari berjalan. Pastikan pakai laptop/browser yang sama untuk ketiga capture.</footer>
+</div>
+
+<script>
+// ====== KONFIGURASI ======
+const WEBHOOK_URL = "xx";
+const KPEI_FOLDER_ID = "xx";
+const THRESHOLD = 1000; // Rp
+
+// ====== HELPERS ======
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function todayLabelText(){
+  const d = new Date();
+  const bulan = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  return d.getDate() + " " + bulan[d.getMonth()] + " " + d.getFullYear();
+}
+function parseIDNumber(str){
+  if(!str) return NaN;
+  // format Indonesia: titik = ribuan, koma = desimal
+  const cleaned = str.trim().replace(/\./g,"").replace(",",".");
+  return parseFloat(cleaned);
+}
+function formatIDNumber(num){
+  if(isNaN(num)) return "-";
+  return num.toLocaleString("id-ID", {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function storageKey(){
+  return "kpei_recap_" + todayKey();
+}
+function loadRecap(){
+  try{
+    return JSON.parse(localStorage.getItem(storageKey())) || {};
+  }catch(e){ return {}; }
+}
+function saveRecap(obj){
+  localStorage.setItem(storageKey(), JSON.stringify(obj));
+}
+
+// ====== STATE ======
+let currentSlot = null;
+let currentImageBase64 = null; // full data URL, e.g. "data:image/png;base64,...."
+const SLOTS = ["08:30","13:30","16:30"];
+
+// ====== Cleanup: buang rekap hari-hari lama dari localStorage ======
+(function cleanupOldRecaps(){
+  const keep = storageKey();
+  Object.keys(localStorage).forEach(k=>{
+    if(k.indexOf("kpei_recap_") === 0 && k !== keep){
+      localStorage.removeItem(k);
+    }
+  });
+})();
+
+// ====== Image handling ======
+function setImagePreview(dataUrl){
+  currentImageBase64 = dataUrl;
+  const wrap = document.getElementById("imgPreviewWrap");
+  const img = document.getElementById("imgPreview");
+  if(dataUrl){
+    img.src = dataUrl;
+    wrap.style.display = "block";
+  } else {
+    img.src = "";
+    wrap.style.display = "none";
+  }
+  document.getElementById("btnCopyImg").disabled = !dataUrl;
+}
+function readFileAsDataURL(file, cb){
+  const reader = new FileReader();
+  reader.onload = ()=> cb(reader.result);
+  reader.readAsDataURL(file);
+}
+document.getElementById("imgInput").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(file) readFileAsDataURL(file, setImagePreview);
+});
+document.addEventListener("paste", (e)=>{
+  const items = e.clipboardData ? e.clipboardData.items : [];
+  for(const item of items){
+    if(item.type.indexOf("image") === 0){
+      const file = item.getAsFile();
+      readFileAsDataURL(file, setImagePreview);
+      break;
+    }
+  }
+});
+document.getElementById("btnClearImg").addEventListener("click", ()=> setImagePreview(null));
+document.getElementById("btnCopyImg").addEventListener("click", async ()=>{
+  if(!currentImageBase64) return;
+  const status = document.getElementById("captureStatus");
+  try{
+    const blob = await (await fetch(currentImageBase64)).blob();
+    await navigator.clipboard.write([new ClipboardItem({[blob.type]: blob})]);
+    status.textContent = "Gambar disalin. Buka WA lalu klik \"Kirim ke WA\", setelah terkirim paste (Ctrl+V) gambarnya.";
+    status.className = "status-msg ok";
+  }catch(err){
+    status.textContent = "Gagal menyalin gambar (browser mungkin tidak mendukung): " + err.message;
+    status.className = "status-msg err";
+  }
+});
+
+const WAKTU_LABEL = {"08:30":"pagi", "13:30":"siang", "16:30":"sore"};
+
+function buildNarrative(a, b, slot){
+  if(isNaN(a) || isNaN(b)) return null;
+  const waktu = WAKTU_LABEL[slot] || "";
+  const diff = Math.abs(a-b);
+  if(diff < THRESHOLD){
+    return {
+      text: "Berdasarkan hasil pengecekan terhadap trading limit equity di KPEI pada " + waktu + " hari ini, nilai trading limit yang diperoleh baik berdasarkan perhitungan sistem maupun perhitungan manual dari KPEI adalah sebesar " + formatIDNumber(a),
+      diff: false
+    };
+  } else {
+    return {
+      text: "Berdasarkan pengecekan limit kita di KPEI " + waktu + " ini untuk trading limit equity berdasarkan perhitungan sistem nilainya " + formatIDNumber(a) + ", namun berdasarkan perhitungan manual dari KPEI nilainya sebesar " + formatIDNumber(b),
+      diff: true
+    };
+  }
+}
+function buildWAMessage(narrativeText){
+  return "Dear All,\n\n" + narrativeText + "\n\nThank you.";
+}
+
+// ====== UI: slot selection ======
+function pickDefaultSlot(){
+  return "08:30";
+}
+
+function renderSlots(){
+  const recap = loadRecap();
+  document.querySelectorAll(".slot-btn").forEach(btn=>{
+    const slot = btn.dataset.slot;
+    btn.classList.toggle("active", slot===currentSlot);
+    btn.classList.toggle("done", !!recap[slot]);
+  });
+}
+
+document.querySelectorAll(".slot-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    currentSlot = btn.dataset.slot;
+    const recap = loadRecap();
+    const existing = recap[currentSlot];
+    document.getElementById("valAtas").value = existing ? existing.atasRaw : "";
+    document.getElementById("valBawah").value = existing ? existing.bawahRaw : "";
+    setImagePreview(existing && existing.image ? existing.image : null);
+    renderSlots();
+    updateNarrative();
+  });
+});
+
+// ====== UI: narrative + buttons ======
+function updateNarrative(){
+  const rawA = document.getElementById("valAtas").value;
+  const rawB = document.getElementById("valBawah").value;
+  const a = parseIDNumber(rawA);
+  const b = parseIDNumber(rawB);
+  const box = document.getElementById("narrativeBox");
+  const result = buildNarrative(a,b,currentSlot);
+
+  if(!result){
+    box.textContent = "Isi kedua nilai di atas untuk melihat narasi.";
+    box.className = "narrative empty";
+    document.getElementById("btnSaveCapture").disabled = true;
+    document.getElementById("btnSendWA").disabled = true;
+    return;
+  }
+  box.textContent = result.text;
+  box.className = "narrative" + (result.diff ? " diff" : "");
+  document.getElementById("btnSaveCapture").disabled = !currentSlot;
+  document.getElementById("btnSendWA").disabled = !currentSlot;
+}
+document.getElementById("valAtas").addEventListener("input", updateNarrative);
+document.getElementById("valBawah").addEventListener("input", updateNarrative);
+
+// ====== Save capture ======
+document.getElementById("btnSaveCapture").addEventListener("click", ()=>{
+  if(!currentSlot) return;
+  const rawA = document.getElementById("valAtas").value;
+  const rawB = document.getElementById("valBawah").value;
+  const a = parseIDNumber(rawA), b = parseIDNumber(rawB);
+  const result = buildNarrative(a,b,currentSlot);
+  if(!result) return;
+
+  const recap = loadRecap();
+  recap[currentSlot] = {
+    atasRaw: rawA, bawahRaw: rawB,
+    narrative: result.text,
+    image: currentImageBase64 || null,
+    savedAt: new Date().toISOString()
+  };
+  saveRecap(recap);
+  renderSlots();
+  renderRecapList();
+  const status = document.getElementById("captureStatus");
+  status.textContent = "Tersimpan untuk jam " + currentSlot.replace(":",".");
+  status.className = "status-msg ok";
+});
+
+// ====== Send WA (this capture only) ======
+document.getElementById("btnSendWA").addEventListener("click", ()=>{
+  const rawA = document.getElementById("valAtas").value;
+  const rawB = document.getElementById("valBawah").value;
+  const a = parseIDNumber(rawA), b = parseIDNumber(rawB);
+  const result = buildNarrative(a,b,currentSlot);
+  if(!result) return;
+  const waText = encodeURIComponent(buildWAMessage(result.text));
+  window.open("https://wa.me/?text=" + waText, "_blank");
+});
+
+// ====== Recap list ======
+function renderRecapList(){
+  const recap = loadRecap();
+  const ul = document.getElementById("recapList");
+  ul.innerHTML = "";
+  SLOTS.forEach(slot=>{
+    const li = document.createElement("li");
+    const entry = recap[slot];
+    const label = document.createElement("span");
+    label.textContent = slot.replace(":",".");
+    const tag = document.createElement("span");
+    if(entry){
+      tag.textContent = "tersimpan";
+      tag.className = "tag";
+    } else {
+      tag.textContent = "belum";
+      tag.className = "tag missing";
+    }
+    li.appendChild(label);
+    li.appendChild(tag);
+    ul.appendChild(li);
+  });
+  const allDone = SLOTS.every(s=>recap[s]);
+  document.getElementById("btnSaveDrive").disabled = !allDone;
+}
+
+// ====== Save recap to Drive ======
+document.getElementById("btnSaveDrive").addEventListener("click", async ()=>{
+  const recap = loadRecap();
+  const status = document.getElementById("driveStatus");
+
+  if(WEBHOOK_URL.indexOf("GANTI_DENGAN") === 0){
+    status.textContent = "Belum diisi: masukkan URL Web App Apps Script di bagian WEBHOOK_URL pada kode.";
+    status.className = "status-msg err";
+    return;
+  }
+
+  const dateStr = todayKey().split("-").join("");
+  const title = dateStr + " Monitoring TL KPEI";
+
+  const captures = SLOTS.map(slot=>{
+    const entry = recap[slot];
+    return {
+      label: "Pukul " + slot.replace(":",".") ,
+      narrative: entry ? entry.narrative : "(tidak ada data)",
+      // kirim base64 murni (tanpa prefix "data:image/png;base64,")
+      imageBase64: entry && entry.image ? entry.image.split(",")[1] : null
+    };
+  });
+
+  status.textContent = "Menyimpan ke Drive...";
+  status.className = "status-msg";
+
+  try{
+    const res = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        title: title,
+        dateLabel: todayLabelText(),
+        captures: captures,
+        folderId: KPEI_FOLDER_ID
+      })
+    });
+    const json = await res.json();
+    if(json.success){
+      status.textContent = "Tersimpan ke Drive: " + json.url;
+      status.className = "status-msg ok";
+    } else {
+      status.textContent = "Gagal: " + json.error;
+      status.className = "status-msg err";
+    }
+  }catch(err){
+    status.textContent = "Gagal menghubungi webhook: " + err.message;
+    status.className = "status-msg err";
+  }
+});
+
+// ====== Reset day ======
+document.getElementById("btnResetDay").addEventListener("click", ()=>{
+  if(!confirm("Hapus semua capture hari ini dari browser ini?")) return;
+  localStorage.removeItem(storageKey());
+  document.getElementById("valAtas").value = "";
+  document.getElementById("valBawah").value = "";
+  setImagePreview(null);
+  renderSlots();
+  renderRecapList();
+  updateNarrative();
+  document.getElementById("captureStatus").textContent = "";
+  document.getElementById("driveStatus").textContent = "";
+});
+
+// ====== Init ======
+document.getElementById("todayLabel").textContent = todayLabelText();
+currentSlot = pickDefaultSlot();
+renderSlots();
+renderRecapList();
+updateNarrative();
+// trigger click state visuals for default slot
+document.querySelectorAll(".slot-btn").forEach(btn=>{
+  if(btn.dataset.slot === currentSlot){
+    const recap = loadRecap();
+    const existing = recap[currentSlot];
+    if(existing){
+      document.getElementById("valAtas").value = existing.atasRaw;
+      document.getElementById("valBawah").value = existing.bawahRaw;
+      updateNarrative();
+    }
+  }
+});
+</script>
+</body>
+</html>
